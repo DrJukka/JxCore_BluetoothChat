@@ -47,7 +47,7 @@ public class BTHandShakeSocketTread extends Thread {
     }
     public void run() {
         Log.i(TAG, "BTHandShakeSocketTread started");
-        byte[] buffer = new byte[100];
+        byte[] buffer = new byte[255];
         int bytes;
 
         try {

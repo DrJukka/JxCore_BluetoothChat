@@ -14,9 +14,11 @@ public class BTConnectToThread extends Thread {
 
     private BluetoothBase.BluetoothStatusChanged callback;
     private final BluetoothSocket mSocket;
+    ServiceItem itemToConnect = null;
 
-    public BTConnectToThread(BluetoothBase.BluetoothStatusChanged Callback, BluetoothDevice device, BTConnectorSettings settings) {
+    public BTConnectToThread(BluetoothBase.BluetoothStatusChanged Callback, BluetoothDevice device, BTConnectorSettings settings,ServiceItem selectedDevice) {
         callback = Callback;
+        itemToConnect = selectedDevice;
         BluetoothSocket tmp = null;
         try {
             tmp = device.createInsecureRfcommSocketToServiceRecord(settings.MY_UUID);
@@ -31,7 +33,7 @@ public class BTConnectToThread extends Thread {
             try {
                 mSocket.connect();
                 //return success
-                callback.Connected(mSocket);
+                callback.Connected(mSocket,itemToConnect);
             } catch (IOException e) {
                 printe_line("socket connect failed: " + e.toString());
                 try {
@@ -39,7 +41,7 @@ public class BTConnectToThread extends Thread {
                 } catch (IOException ee) {
                     printe_line("closing socket 2 failed: " + ee.toString());
                 }
-                callback.ConnectionFailed(e.toString());
+                callback.ConnectionFailed(e.toString(),itemToConnect.peerId,itemToConnect.peerName,itemToConnect.deviceAddress);
             }
         }
     }

@@ -12,6 +12,8 @@ import android.os.CountDownTimer;
 import android.os.Handler;
 import android.util.Log;
 
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -25,11 +27,12 @@ import static android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION;
 
 public class WifiServiceSearcher {
 
+    WifiServiceSearcher that = this;
     private Context context;
     private BroadcastReceiver receiver;
     private IntentFilter filter;
     private String SERVICE_TYPE;
-
+    private AESCrypt mAESCrypt = null;
     private final WifiBase.WifiStatusCallBack callback;
     private WifiP2pManager p2p;
     private WifiP2pManager.Channel channel;
@@ -58,12 +61,13 @@ public class WifiServiceSearcher {
 
     CountDownTimer peerDiscoveryTimer = null;
 
-    public WifiServiceSearcher(Context Context, WifiP2pManager Manager, WifiP2pManager.Channel Channel, WifiBase.WifiStatusCallBack handler,String serviceType) {
+    public WifiServiceSearcher(Context Context, WifiP2pManager Manager, WifiP2pManager.Channel Channel, WifiBase.WifiStatusCallBack handler,String serviceType,AESCrypt encrypter) {
         this.context = Context;
         this.p2p = Manager;
         this.channel = Channel;
         this.callback = handler;
         this.SERVICE_TYPE = serviceType;
+        this.mAESCrypt = encrypter;
 
         Random ran = new Random(System.currentTimeMillis());
 
@@ -81,6 +85,12 @@ public class WifiServiceSearcher {
                 myServiceState = ServiceState.NONE;
                 if(callback != null) {
                     callback.gotServicesList(myServiceList);
+                    myServiceState = ServiceState.DiscoverPeer;
+                    //cancel all other counters, and start our wait cycle
+                    ServiceDiscoveryTimeOutTimer.cancel();
+                    peerDiscoveryTimer.cancel();
+                    stopDiscovery();
+                    startPeerDiscovery();
                 }else{
                     startPeerDiscovery();
                 }
@@ -106,19 +116,20 @@ public class WifiServiceSearcher {
             public void onPeersAvailable(WifiP2pDeviceList peers) {
 
                 final WifiP2pDeviceList pers = peers;
-                if (pers.getDeviceList().size() > 0) {
-                    // this is called still multiple time time-to-time
-                    // so need to make sure we only make one service discovery call
-                    if(myServiceState != ServiceState.DiscoverService) {
-
-                        if(callback != null) {
-                            callback.gotPeersList(pers.getDeviceList());
-                        }
+                // this is called still multiple time time-to-time
+                // so need to make sure we only make one service discovery call
+                if(myServiceState != ServiceState.DiscoverService) {
+                    if(callback != null) {
+                        callback.gotPeersList(pers.getDeviceList());
+                    }
+                    if (pers.getDeviceList().size() > 0) {
                         //tests have shown that if we have multiple peers with services advertising
                         // who disappear same time when we do this, there is a chance that we get stuck
                         // thus, if this happens, in 60 seconds we'll cancel this query and start peer discovery again
                         ServiceDiscoveryTimeOutTimer.start();
                         startServiceDiscovery();
+                    }else{
+                        //we'll just wait
                     }
                 }
             }
@@ -138,7 +149,25 @@ public class WifiServiceSearcher {
                         }
                     }
                     if(addService) {
-                        myServiceList.add(new ServiceItem(instanceName, serviceType, device.deviceAddress,device.deviceName));
+
+                        try {
+                            //String JsonLine = that.mAESCrypt.decrypt(instanceName);
+                            String JsonLine = instanceName;
+                            debug_print("Got JSON from encryption:" + JsonLine);
+
+                            JSONObject jObject = new JSONObject(JsonLine);
+
+                            String peerIdentifier = jObject.getString(BTConnector.JSON_ID_PEERID);
+                            String peerName = jObject.getString(BTConnector.JSON_ID_PEERNAME);
+                            String peerAddress = jObject.getString(BTConnector.JSON_ID_BTADRRES);
+
+                            debug_print("peerIdentifier:" + peerIdentifier + ", peerName: " + peerName + ", peerAddress: " + peerAddress);
+
+                            myServiceList.add(new ServiceItem(peerIdentifier,peerName,peerAddress, serviceType, device.deviceAddress,device.deviceName));
+
+                        }catch (Exception e){
+                            debug_print("Desscryptin instance failed , :" + e.toString());
+                        }
                     }
 
                 } else {
@@ -146,7 +175,6 @@ public class WifiServiceSearcher {
                 }
 
                 ServiceDiscoveryTimeOutTimer.cancel();
-
                 peerDiscoveryTimer.cancel();
                 peerDiscoveryTimer.start();
             }

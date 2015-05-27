@@ -32,7 +32,7 @@ public class WifiServiceAdvertiser {
 
         WifiP2pDnsSdServiceInfo service = WifiP2pDnsSdServiceInfo.newInstance(instance, service_type, record);
 
-        debug_print("Add local service :" + instance);
+        debug_print("Add local service :" + instance + ", length : " + instance.length());
         p2p.addLocalService(channel, service, new WifiP2pManager.ActionListener() {
             public void onSuccess() {
                 lastError = -1;

@@ -9,6 +9,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/btconnectorlib2" />
+            <option value="$PROJECT_DIR$/btlib_testapp" />
           </set>
         </option>
       </GradleProjectSettings>
