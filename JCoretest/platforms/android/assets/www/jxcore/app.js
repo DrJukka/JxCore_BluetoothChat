@@ -60,6 +60,19 @@ function isFunction(functionToCheck) {
     var getType = {};
     return functionToCheck && getType.toString.call(functionToCheck) === '[object Function]';
 }
+
+
+  // inform connection status.
+  function peerConnectionStateChanged(peerIdentifier, state) {
+
+    console.log("peerConnectionStateChanged " + peerIdentifier + " to  state"   + state);
+    if(isFunction(peerConnectionStatusCallback)){
+        peerConnectionStatusCallback(peerIdentifier, state);
+    }else{
+        console.log("peerConnectionStatusCallback not set !!!!");
+    }
+  };
+
 /*
 helper variables
 */
@@ -80,11 +93,33 @@ Registred native functions
     if (network.isReachable) {
       logInCordova('****** NETWORK REACHABLE!!!');
     }
+
   });
 
-  // Register peerChanged callback.
-  cordova('peerChanged').registerToNative(function (args) {
-    logInCordova('peerChanged called');
+  // Register peerNotConnected callback.
+  cordova('peerNotConnected').registerToNative(function (peerId) {
+        logInCordova('peerAvailabilityChanged called');
+
+        peerConnectionStateChanged(peerId,"Disconnected");
+  });
+
+  // Register peerConnected callback.
+  cordova('peerConnected').registerToNative(function (peerId) {
+        logInCordova('peerAvailabilityChanged called');
+
+        peerConnectionStateChanged(peerId,"Connected");
+  });
+
+  // Register peerConnecting callback.
+  cordova('peerConnecting').registerToNative(function (peerId) {
+        logInCordova('peerAvailabilityChanged called');
+
+        peerConnectionStateChanged(peerId,"Connecting");
+  });
+
+  // Register peerAvailabilityChanged callback.
+  cordova('peerAvailabilityChanged').registerToNative(function (args) {
+    logInCordova('peerAvailabilityChanged called');
     var peers = args[0];
 
     console.log("peerChanged " + peers);
@@ -92,12 +127,6 @@ Registred native functions
         peerChangedCallback(args);
     }else{
         console.log("peerChangedCallback not set !!!!");
-    }
-
-    for (var i = 0; i < peers.length; i++) {
-      var peer = peers[i];
-      // Set the peer.
-      _peers[peer.peerIdentifier] = peer;
     }
   });
 
@@ -123,13 +152,25 @@ cordova('setMessageCallback').registerAsync(function(callback){
     MessageCallback = callback;
 });
 
+
+var peerConnectionStatusCallback;
+cordova('setConnectionStatusCallback').registerAsync(function(callback){
+    console.log("setConnectionStatusCallback  : " + callback);
+    peerConnectionStatusCallback = callback;
+});
+
 var peerChangedCallback;
 
-cordova('StartConnector').registerAsync(function(btConnectorCallback){
+cordova('setPeerChangedCallback').registerAsync(function(callback){
+    console.log("setConnectionStatusCallback  : " + callback);
+    peerChangedCallback = callback;
+});
 
-    logInCordova("StartConnector: " + btConnectorCallback);
-    peerChangedCallback = btConnectorCallback;
 
+
+cordova('StartConnector').registerAsync(function(){
+
+    logInCordova("StartConnector: ");
     startPeerCommunications(peerIdentifier,peerName);
 });
 
@@ -138,17 +179,14 @@ cordova('StopConnector').registerAsync(function(){
     stopPeerCommunications(peerIdentifier,peerName);
 });
 
+
+
 cordova('ConnectToDevice').registerAsync(function(address,callback){
-
     console.log("ConnectToDevice address : " + address);
-    cordova('ConnectToDevice').callNative(address,function(){
 
-      console.log("ConnectToDevice callback with " + arguments.length + " arguments");
-      if(arguments.length > 1){
-            callback(arguments[0].toString(),arguments[1].toString());
-      }else{
-            callback(arguments[0].toString(),"");
-      }
+
+    cordova('ConnectToDevice').callNative(address,function(){
+      console.log("ConnectToDevice called");
     });
 });
 
@@ -184,7 +222,7 @@ cordova('SendMessage').registerAsync(function(message,callback){
 
 cordova('ShowToast').registerAsync(function(message,isLong,callback){
     cordova('ShowToast').callNative(message,isLong,function(){
-        callback(arguments);
+        //callback(arguments);
     });
 });
 

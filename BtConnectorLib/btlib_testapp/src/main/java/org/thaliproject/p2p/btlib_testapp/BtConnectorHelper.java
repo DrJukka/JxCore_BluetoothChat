@@ -256,6 +256,11 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
         return null;
     }
 
+    @Override
+    public void PeerDiscovered(ServiceItem service) {
+
+    }
+
     /*
         {
             "peerIdentifier": "F50F4805-A2AB-4249-9E2F-4AF7420DF5C7",

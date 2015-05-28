@@ -4,6 +4,7 @@ package org.thaliproject.p2p.btconnectorlib;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.util.Log;
 
 import java.io.IOException;
 
@@ -47,7 +48,7 @@ public class BTConnectToThread extends Thread {
     }
 
     private void printe_line(String message){
-     //   Log.d("BTConnectToThread",  "BTConnectToThread: " + message);
+        //Log.d("BTConnectToThread", "BTConnectToThread: " + message);
     }
 
     public void Stop() {

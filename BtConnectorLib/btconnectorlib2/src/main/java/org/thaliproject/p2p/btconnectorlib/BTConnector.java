@@ -40,6 +40,7 @@ public class BTConnector implements BluetoothBase.BluetoothStatusChanged, WifiBa
 
     public interface  ConnectSelector{
         public ServiceItem CurrentPeersList(List<ServiceItem> available);
+        public void PeerDiscovered(ServiceItem service);
     }
 
     private State myState = State.NotInitialized;
@@ -457,6 +458,13 @@ public class BTConnector implements BluetoothBase.BluetoothStatusChanged, WifiBa
             }
 
             TryConnect(selItem);
+        }
+    }
+
+    @Override
+    public void foundService(ServiceItem item) {
+        if(this.connectSelector != null){
+            this.connectSelector.PeerDiscovered(item);
         }
     }
 

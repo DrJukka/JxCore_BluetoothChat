@@ -23,6 +23,7 @@ public class WifiBase implements WifiP2pManager.ChannelListener{
         public void WifiStateChanged(int state);
         public void gotPeersList(Collection<WifiP2pDevice> list);
         public void gotServicesList(List<ServiceItem> list);
+        public void foundService(ServiceItem item);
     }
 
     private List<ServiceItem> connectedArray = new ArrayList<ServiceItem>();

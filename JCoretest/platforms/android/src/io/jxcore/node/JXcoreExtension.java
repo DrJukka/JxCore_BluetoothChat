@@ -101,6 +101,8 @@ public class JXcoreExtension {
           }
       });
 
+
+
       jxcore.RegisterMethod("StartPeerCommunications", new JXcoreCallback() {
           @Override
           public void Receiver(ArrayList<Object> params, String callbackId) {
@@ -135,6 +137,8 @@ public class JXcoreExtension {
                   peerId = params.get(0).toString();
               }
               boolean retval = mBtConnectorHelper.Disconnect(peerId);
+              mBtConnectorHelper.ReStart();
+
           }
       });
 

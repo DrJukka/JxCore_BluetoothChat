@@ -28,13 +28,6 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
     final String BtUUID                = "fa87c0d0-afac-11de-8a39-0800200c9a66";
     final String Bt_NAME               = "Thaili_Bluetooth";
 
-    final String STATE_UNAVAILABLE     = "Unavailable";
-    final String STATE_AVAILABLE       = "Available";
-    final String STATE_CONNECTING      = "Connecting";
-    final String STATE_CONNECTINGFAIL  = "ConnectingFailed";
-    final String STATE_DISCONNECTED    = "Disconnected";
-    final String STATE_CONNECTED       = "Connected";
-
     List<ServiceItem> lastAvailableList = new ArrayList<ServiceItem>();
 
     BTConnectorSettings conSettings = null;
@@ -60,7 +53,7 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
         this.lastAvailableList.clear();
         Stop();
         mBTConnector = new BTConnector(context,this,this,conSettings,instanceEncryptionPWD);
-        mBTConnector.Start(peerIdentifier,peerName);
+        mBTConnector.Start(this.myPeerIdentifier,this.myPeerName);
     }
 
     public void Stop(){
@@ -77,15 +70,21 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
         if (mBTConnectedThread != null) {
             String currentpeerId = mBTConnectedThread.GetPeerId();
             if(peerId.length() == 0 || peerId.equalsIgnoreCase(currentpeerId)) {
-                String peerName = mBTConnectedThread.GetPeerName();
                 mBTConnectedThread.Stop();
                 mBTConnectedThread = null;
-                String stateReply = "[" + getStatusItem(currentpeerId, peerName, STATE_DISCONNECTED) + "]";
-                jxcore.CallJSMethod("peerChanged", stateReply);
+                ArrayList<Object> args = new ArrayList<Object>();
+                args.add(currentpeerId);
+                jxcore.CallJSMethod("peerNotConnected", args.toArray());
                 ret = true;
             }
         }
         return ret;
+    }
+
+    public void ReStart(){
+        Stop();
+        mBTConnector = new BTConnector(context,this,this,conSettings,instanceEncryptionPWD);
+        mBTConnector.Start(this.myPeerIdentifier,this.myPeerName);
     }
 
     public String GetDeviceName(){
@@ -140,20 +139,19 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
         }
 
         String peerId = toPeerId;
-        String peerName = "";
         if(selectedDevice != null){
             peerId = selectedDevice.peerId;
-            peerName = selectedDevice.peerName;
         }
+
+        ArrayList<Object> args = new ArrayList<Object>();
+        args.add(peerId);
 
         if (selectedDevice != null && mBTConnector != null  && mBTConnector.TryConnect(selectedDevice)) {
             // we are ok, and status-callback will be delivering the events.
-            String stateReply = "[" + getStatusItem(peerId,peerName, STATE_CONNECTING) + "]";
-            jxcore.CallJSMethod("peerChanged", stateReply);
+            jxcore.CallJSMethod("peerConnecting", args.toArray());
             ret = true;
         } else {
-            String stateReply = "[" + getStatusItem(peerId,peerName, STATE_CONNECTINGFAIL) + "]";
-            jxcore.CallJSMethod("peerChanged", stateReply);
+            jxcore.CallJSMethod("peerNotConnected", args.toArray());
         }
 
         return ret;
@@ -172,25 +170,11 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
     @Override
     public void Connected(BluetoothSocket bluetoothSocket, boolean incoming,String peerId,String peerName,String peerAddress) {
 
-        String reply = "[";
-        reply = reply + getStatusItem(peerId,peerName, STATE_CONNECTED);
+        AddPeerIfNotDiscovered(bluetoothSocket,peerId,peerName,peerAddress);
 
-        // the current Bluetooth implementation is used for only one p2p connection at any time
-        // see if this is needed or not
-        if(lastAvailableList != null) {
-            for (int ii = 0; ii < lastAvailableList.size(); ii++) {
-
-                if(!lastAvailableList.get(ii).peerId.equals(peerId)) {
-                    reply = reply + ",";
-                    reply = reply + getStatusItem(lastAvailableList.get(ii), STATE_UNAVAILABLE);
-                }
-            }
-        }
-
-        reply = reply +"]";
-        lastAvailableList.clear();
-
-        jxcore.CallJSMethod("peerChanged", reply);
+        ArrayList<Object> args = new ArrayList<Object>();
+        args.add(peerId);
+        jxcore.CallJSMethod("peerConnected", args.toArray());
 
         if (mBTConnectedThread != null) {
             mBTConnectedThread.Stop();
@@ -201,10 +185,36 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
         mBTConnectedThread.start();
     }
 
+    public void AddPeerIfNotDiscovered(BluetoothSocket bluetoothSocket, String peerId,String peerName,String peerAddress) {
+
+        if (lastAvailableList == null) {
+            lastAvailableList = new ArrayList<ServiceItem>();
+        }
+
+        boolean isDiscovered = false;
+
+        for (int i = 0; i < lastAvailableList.size(); i++) {
+            if (lastAvailableList.get(i).peerId.contentEquals(peerId)) {
+                isDiscovered = true;
+                break;
+            }
+        }
+        if (!isDiscovered) {
+            ServiceItem tmpSrv = new ServiceItem(peerId,peerName,peerAddress, "", "","");
+            lastAvailableList.add(tmpSrv);
+
+            String reply = "[";
+            reply = reply + getAvailabilityStatus(tmpSrv, true);
+            reply = reply +"]";
+            jxcore.CallJSMethod("peerChanged", reply);
+        }
+    }
+
     @Override
     public void ConnectionFailed(String peerId, String peerName, String peerAddress) {
-        String stateReply = "[" + getStatusItem(peerId,peerName, STATE_CONNECTINGFAIL) + "]";
-        jxcore.CallJSMethod("peerChanged", stateReply);
+        ArrayList<Object> args = new ArrayList<Object>();
+        args.add(peerId);
+        jxcore.CallJSMethod("peerNotConnected", args.toArray());
     }
 
     @Override
@@ -230,6 +240,11 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
 
     }
 
+    // this is called with a fulllist of peer-services we see, its takes time to get,
+    // since there is time spend between each peer we discover
+    // anyway, this list can be sued for determioning whether the peer we saw earlier has now disappeared
+    // will be called null or empty list, if no services are found during some time period.
+
     @Override
     public ServiceItem CurrentPeersList(List<ServiceItem> serviceItems) {
 
@@ -243,9 +258,7 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
                 ServiceItem item = serviceItems.get(i);
                 if (lastAvailableList != null) {
                     for (int ll = (lastAvailableList.size() - 1); ll >= 0; ll--) {
-
                         if (item.deviceAddress.equalsIgnoreCase(lastAvailableList.get(ll).deviceAddress)) {
-
                             wasPrevouslyAvailable = true;
                             lastAvailableList.remove(ll);
                         }
@@ -256,7 +269,7 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
                     if (reply.length() > 3) {
                         reply = reply + ",";
                     }
-                    reply = reply + getStatusItem(item, STATE_AVAILABLE);
+                    reply = reply + getAvailabilityStatus(item, true);
                 }
             }
         }
@@ -266,14 +279,13 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
                 if (reply.length() > 3) {
                     reply = reply + ",";
                 }
-
-                reply = reply + getStatusItem(lastAvailableList.get(ii), STATE_UNAVAILABLE);
+                reply = reply + getAvailabilityStatus(lastAvailableList.get(ii), false);
+                lastAvailableList.remove(ii);
             }
         }
 
         reply = reply +"]";
 
-        lastAvailableList.clear();
         if(serviceItems != null) {
             for (int iii = 0; iii < serviceItems.size(); iii++) {
                 lastAvailableList.add(serviceItems.get(iii));
@@ -286,6 +298,27 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
         }
         return null;
     }
+
+    // this is called when we see a peer, so we can inform the app of its availability right when we see it
+    @Override
+    public void PeerDiscovered(ServiceItem serviceItem) {
+        boolean wasPrevouslyAvailable = false;
+
+        if (lastAvailableList != null) {
+            for (int ll = (lastAvailableList.size() - 1); ll >= 0; ll--) {
+                if (serviceItem.deviceAddress.equalsIgnoreCase(lastAvailableList.get(ll).deviceAddress)) {
+                    wasPrevouslyAvailable = true;
+                }
+            }
+        }
+
+        if (!wasPrevouslyAvailable) {
+            lastAvailableList.add(serviceItem);
+            String stateReply = "[" + getAvailabilityStatus(serviceItem, true) + "]";
+            jxcore.CallJSMethod("peerAvailabilityChanged", stateReply);
+        }
+    }
+
     /*
         {
             "peerIdentifier": "F50F4805-A2AB-4249-9E2F-4AF7420DF5C7",
@@ -293,10 +326,10 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
             "state": "Available"
         }
     */
-    private String getStatusItem(ServiceItem item, String state) {
+    private String getAvailabilityStatus(ServiceItem item, boolean available) {
         String reply = "";
         if(item != null) {
-            reply = getStatusItem(item.peerId,item.peerName,state);
+            reply = "{\"peerIdentifier\":\"" + item.peerId + "\", " + "\"peerName\":\"" + item.peerName + "\", " + "\"peerAvailable\":\"" + available + "\"}";
         }
         return reply;
     }
@@ -334,16 +367,15 @@ public class BtConnectorHelper implements BTConnector.Callback, BTConnector.Conn
 
                     if (mBTConnectedThread != null) {
                         String peerId = mBTConnectedThread.GetPeerId();
-                        String peerName = mBTConnectedThread.GetPeerName();
                         mBTConnectedThread.Stop();
                         mBTConnectedThread = null;
-
-                        String stateReply = "[" + getStatusItem(peerId, peerName, STATE_DISCONNECTED) + "]";
-                        jxcore.CallJSMethod("peerChanged", stateReply);
+                        ArrayList<Object> args = new ArrayList<Object>();
+                        args.add(peerId);
+                        jxcore.CallJSMethod("peerNotConnected", args.toArray());
                     }
 
                     if(mBTConnector != null) {
-                        mBTConnector.Start(myPeerIdentifier,myPeerName);
+                        ReStart();
                     }
                 }
                 break;

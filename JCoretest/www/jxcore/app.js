@@ -102,6 +102,8 @@ Registred native functions
   });
 
 
+
+
 cordova('OnMessagingEvent').registerToNative(function(message){
     console.log("On-MessagingEvent:" + arguments.length + " arguments : msg: " + message);
 
@@ -194,26 +196,26 @@ cordova('ShowToast').registerAsync(function(message,isLong,callback){
 var isInForeground = false;
 
 cordova('onLifeCycleEvent').registerToNative(function(message){
-        console.log("LifeCycleEvent :" + message.lifecycleevent);
+        console.log("LifeCycleEvent :" + message);
 
-        if (message.lifecycleevent.localeCompare("onActivityCreated") == 0) {
+        if (message.localeCompare("onActivityCreated") == 0) {
             console.log("Activity was created");
             isInForeground = true;
-        } else if (message.lifecycleevent.localeCompare("onActivityStarted") == 0) {
+        } else if (message.localeCompare("onActivityStarted") == 0) {
             console.log("Activity was started");
             isInForeground = true;
-        } else if (message.lifecycleevent.localeCompare("onActivityResumed") == 0) {
+        } else if (message.localeCompare("onActivityResumed") == 0) {
             console.log("Activity was resumed");
             isInForeground = true;
-        } else if (message.lifecycleevent.localeCompare("onActivityPaused") == 0) {
+        } else if (message.localeCompare("onActivityPaused") == 0) {
             console.log("Activity was paused");
             isInForeground = false;
-        } else if (message.lifecycleevent.localeCompare("onActivityStopped") == 0) {
+        } else if (message.localeCompare("onActivityStopped") == 0) {
             console.log("Activity was stopped");
             isInForeground = false;
-        } else if (message.lifecycleevent.localeCompare("onActivitySaveInstanceState") == 0) {
+        } else if (message.localeCompare("onActivitySaveInstanceState") == 0) {
             console.log("Activity was save on instance event");
-        } else if (message.lifecycleevent.localeCompare("onActivityDestroyed") == 0) {
+        } else if (message.localeCompare("onActivityDestroyed") == 0) {
             console.log("Activity was destroyed");
             isInForeground = false;
         } else {

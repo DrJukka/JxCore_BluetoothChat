@@ -86,12 +86,14 @@
 
 function startConnector()
 {
-    jxcore('StartConnector').call(peersChangedCallback);
+    jxcore('setMessageCallback').call(SendMessageCallback);
+    jxcore('setConnectionStatusCallback').call(peersConnectionStateCallback);
+    jxcore('setPeerChangedCallback').call(peersChangedCallback);
+
+    jxcore('StartConnector').call();
     document.getElementById('StateBox').value = "Running";
     document.getElementById('stopButton').style.display = 'block';
     document.getElementById('startButton').style.display = 'none';
-
-    jxcore('setMessageCallback').call(SendMessageCallback);
 }
 
 function stopConnector(){
@@ -110,35 +112,60 @@ var _peers = {};
 
 function peersChangedCallback(myJson) {
 
-    //alert("Got myJson :" + myJson);
+  //  alert("Got myJson :" + myJson);
+
+    for (var i = 0; i < myJson.length; i++) {
+        var peer = myJson[i];
+        _peers[peer.peerIdentifier] = peer;
+//        alert("Got peer : " + peer.peerIdentifier + ", peerAvailable: "  + peer.peerAvailable);
+    }
 
     //Lets clear the old list first
     var butEntries = document.getElementById('peerListSelector');
     butEntries.innerHTML = "";
 
-    for (var i = 0; i < myJson.length; i++) {
-        var peer = myJson[i];
-        _peers[peer.peerIdentifier] = peer;
-
-        addButton(peer);
-
-       // alert("Got peer : " + peer.peerName + ": "  + peer.state + " : " + peer.peerIdentifier);
-        if(peer.state == "Available"){
-        }else if(peer.state == "Unavailable"){
-        }else if(peer.state == "Connecting"){
-        }else if(peer.state == "ConnectingFailed"){
-        }else if(peer.state == "Disconnected"){
-            document.getElementById('RemNameBox').value = "";
-            document.getElementById('RemAddrBox').value = "";
-        }else if(peer.state == "Connected"){
-
-            document.getElementById('RemNameBox').value = peer.peerName;
-            document.getElementById('RemAddrBox').value = peer.peerIdentifier;
+    for(var key in _peers){
+        if(_peers[key].peerAvailable == "true"){
+            addButton(_peers[key]);
+        }
+    }
+    for(var key in _peers){
+        if(_peers[key].peerAvailable != "true"){
+            addButton(_peers[key]);
         }
     }
 
-    if(document.getElementById('RemNameBox').value.length > 0
-    && document.getElementById('RemAddrBox').value.length > 0){
+    if( document.getElementById('RemAddrBox').value.length > 0){
+        document.getElementById('myRemoteDevice').style.display = 'block';
+        document.getElementById('myDeviceSelection').style.display = 'none';
+    }else{
+        document.getElementById('myRemoteDevice').style.display = 'none';
+        document.getElementById('myDeviceSelection').style.display = 'block';
+    }
+}
+
+
+function peersConnectionStateCallback(peerId, state) {
+
+    // alert("Got connection peer : " + peerId + ", state: "  + state);
+
+    if(state == "Connecting"){
+        jxcore('ShowToast').call('Connecting  to ' + peerId,false);
+    }else if(state == "Disconnected"){
+        jxcore('ShowToast').call('Disconnected from ' + peerId,true);
+        document.getElementById('RemNameBox').value = "";
+        document.getElementById('RemAddrBox').value = "";
+        ClearMessages();
+    }else if(state == "Connected"){
+        document.getElementById('RemAddrBox').value = peerId;
+        for(var key in _peers){
+            if(_peers[key]. peerIdentifier  == peerId){
+                document.getElementById('RemNameBox').value = _peers[key].peerName;
+            }
+        }
+    }
+
+    if(document.getElementById('RemAddrBox').value.length > 0){
         document.getElementById('myRemoteDevice').style.display = 'block';
         document.getElementById('myDeviceSelection').style.display = 'none';
     }else{
@@ -148,6 +175,7 @@ function peersChangedCallback(myJson) {
 }
 
 function addButton(peer) {
+
         var butEntries = document.getElementById('peerListSelector');
 
         if (butEntries) {
@@ -155,7 +183,7 @@ function addButton(peer) {
             var hrelem1 = document.createElement('hr');
             holdingdiv.appendChild(hrelem1);
 
-            if(peer.state == "Available"){
+            if(peer.peerAvailable == "true"){
                 var button = document.createElement('button');
                 button.innerHTML = 'Connect to ' + peer.peerName;
                 button.onclick = function(){
@@ -165,18 +193,8 @@ function addButton(peer) {
                 holdingdiv.appendChild(button);
             }else{
                 var statediv = document.createElement('div');
+                statediv.innerHTML = peer.peerName + " Unavailable, id: " +peer.peerIdentifier;
 
-                if(peer.state == "Unavailable"){
-                    statediv.innerHTML = peer.peerName + " Unavailable, id: " +peer.peerIdentifier;
-                }else if(peer.state == "Connecting"){
-                    statediv.innerHTML = peer.peerName + " Connecting, id: " +peer.peerIdentifier;
-                }else if(peer.state == "ConnectingFailed"){
-                    statediv.innerHTML = peer.peerName + " ConnectingFailed, id: " +peer.peerIdentifier;
-                }else if(peer.state == "Disconnected"){
-                    statediv.innerHTML = peer.peerName + " Disconnected, id: " +peer.peerIdentifier;
-                }else if(peer.state == "Connected"){
-                    statediv.innerHTML = peer.peerName + " Connected, id: " +peer.peerIdentifier;
-                }
                 holdingdiv.appendChild(statediv);
             }
 
@@ -184,6 +202,7 @@ function addButton(peer) {
             holdingdiv.appendChild(hrelem2);
 
             butEntries.appendChild(holdingdiv);
+
          }
       }
 function DisconnectPeer(){

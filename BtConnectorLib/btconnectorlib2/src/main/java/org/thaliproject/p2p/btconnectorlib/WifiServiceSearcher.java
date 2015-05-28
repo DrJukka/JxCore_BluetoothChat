@@ -153,7 +153,7 @@ public class WifiServiceSearcher {
                         try {
                             //String JsonLine = that.mAESCrypt.decrypt(instanceName);
                             String JsonLine = instanceName;
-                            debug_print("Got JSON from encryption:" + JsonLine);
+//                            debug_print("Got JSON from encryption:" + JsonLine);
 
                             JSONObject jObject = new JSONObject(JsonLine);
 
@@ -163,7 +163,11 @@ public class WifiServiceSearcher {
 
                             debug_print("peerIdentifier:" + peerIdentifier + ", peerName: " + peerName + ", peerAddress: " + peerAddress);
 
-                            myServiceList.add(new ServiceItem(peerIdentifier,peerName,peerAddress, serviceType, device.deviceAddress,device.deviceName));
+                            ServiceItem tmpSrv = new ServiceItem(peerIdentifier,peerName,peerAddress, serviceType, device.deviceAddress,device.deviceName);
+                            if(callback != null) {
+                                callback.foundService(tmpSrv);
+                            }
+                            myServiceList.add(tmpSrv);
 
                         }catch (Exception e){
                             debug_print("Desscryptin instance failed , :" + e.toString());
